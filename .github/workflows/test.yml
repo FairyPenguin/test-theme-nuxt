@@ -73,29 +73,56 @@ jobs:
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
+      - name: Setup VPS permissions
+        run: |
+          # Create setup script
+          cat << 'EOFS' > setup.sh
+            # Add user to docker group
+            if ! groups $USER | grep -q '\bdocker\b'; then
+              echo "${{ secrets.VPS_PASSWORD }}" | sudo -S usermod -aG docker $USER
+            fi
+            
+            # Add docker commands to sudoers
+            echo "${{ secrets.VPS_PASSWORD }}" | sudo -S bash -c 'cat >> /etc/sudoers.d/docker-commands << EOF
+            $USER ALL=(ALL) NOPASSWD: /usr/bin/docker pull
+            $USER ALL=(ALL) NOPASSWD: /usr/bin/docker stop
+            $USER ALL=(ALL) NOPASSWD: /usr/bin/docker rm
+            $USER ALL=(ALL) NOPASSWD: /usr/bin/docker run
+            EOF'
+            
+            # Set correct permissions
+            echo "${{ secrets.VPS_PASSWORD }}" | sudo -S chmod 440 /etc/sudoers.d/docker-commands
+          EOFS
+          chmod +x setup.sh
+
+          # Run setup script
+          sudo sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -tt -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} < setup.sh
+          rm setup.sh
+
       - name: Deploy to VPS
         run: |
-          # Create a temporary script file
+          # Create deployment script
           cat << 'EOFS' > deploy.sh
-            # Using sudo for all docker commands
-            sudo docker pull ${{ env.DOCKER_IMAGE_FRONTEND }}
-            sudo docker stop my-app || true
-            sudo docker rm my-app || true
-            sudo docker run -d --name my-app -p 3000:3000 ${{ env.DOCKER_IMAGE_FRONTEND }}
+            # Load the docker group permissions without logout
+            newgrp docker << 'EOF'
+              # Pull and run the container
+              docker pull ${{ env.DOCKER_IMAGE_FRONTEND }}
+              docker stop my-app || true
+              docker rm my-app || true
+              docker run -d --name my-app -p 3000:3000 ${{ env.DOCKER_IMAGE_FRONTEND }}
+            EOF
           EOFS
           chmod +x deploy.sh
 
-          # Use sshpass with explicit password and pass password to sudo
-          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -tt -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "echo '${{ secrets.VPS_PASSWORD }}' | sudo -S bash -s" < deploy.sh
-
-          # Clean up
+          # Execute deployment
+          sudo sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -tt -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} 'bash -s' < deploy.sh
           rm deploy.sh
 
       - name: Health Check
         run: |
-          # Create a temporary health check script
           cat << 'EOFS' > healthcheck.sh
-            if sudo curl -s http://localhost:3000; then
+            curl -s http://localhost:3000 > /dev/null
+            if [ $? -eq 0 ]; then
               echo "Health check passed!"
               exit 0
             else
@@ -105,8 +132,5 @@ jobs:
           EOFS
           chmod +x healthcheck.sh
 
-          # Run health check with sudo
-          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -tt -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "echo '${{ secrets.VPS_PASSWORD }}' | sudo -S bash -s" < healthcheck.sh
-
-          # Clean up
+          sudo sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -tt -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} 'bash -s' < healthcheck.sh
           rm healthcheck.sh

@@ -58,12 +58,24 @@ jobs:
           docker-compose build
           docker-compose push
 
+      ###############################
+      ###############################
+      ###############################
+      ###############################
       - name: Install sshpass
         run: sudo apt-get install -y sshpass
 
       - name: Deploy to Hetzner VPS
-        run: |
-          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST "docker pull $DOCKER_IMAGE_FRONTEND && docker run -d --name my-app -p 3000:3000 $DOCKER_IMAGE_FRONTEND"
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          # password: ${{ secrets.VPS_PASSWORD }} # Only if using password
+          key: ${{ secrets.VPS_SSH_KEY }} # Only if using SSH key
+          script: |
+            docker pull $DOCKER_IMAGE_FRONTEND
+            docker run -d --name my-app -p 3000:3000 $DOCKER_IMAGE_FRONTEND
+
       #   run: |
       #     echo "$VPS_SSH_KEY" > id_rsa  # Write the SSH key to a file
       #     chmod 600 id_rsa  # Set proper permission

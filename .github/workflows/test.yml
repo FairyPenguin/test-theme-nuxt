@@ -101,14 +101,14 @@ jobs:
             set -x  # Enable command echoing
             
             # Login to Docker Hub
-            echo '${{ secrets.DOCKERHUB_TOKEN }}' | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin"
+            echo '${{ secrets.DOCKERHUB_TOKEN }}' | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
             
             echo "Starting deployment as user: $(whoami)"
             echo "Testing docker commands..."
             docker pull greyfighter/prepre:nuxt-app-v1 
 
             # Stop and remove the existing container if it exists
-            
+
             # Run the new container
 
             docker run -d \

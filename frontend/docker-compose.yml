@@ -1,8 +1,25 @@
-version: "3"
+version: "3.8" # Specify the version
+
 services:
   web:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile # Path to your Dockerfile
+    image: greyfighter/prepre:nuxt-app-v1 # Set your image name
     ports:
-      - "3000:3000"
-    dockerfile: Dockerfile
-    image: greyfighter/prepre:nuxt-app-v1 # Use your Docker Hub repo name
+      - "3000:3000" # Map your ports as needed
+
+# services:
+#   web:
+#     build:
+#       context: .
+#       dockerfile: Dockerfile # Ensure this path is correct
+
+# version: "3"
+# services:
+#   web:
+#     build: .
+#     ports:
+#       - "3000:3000"
+#     dockerfile: Dockerfile
+#     image: greyfighter/prepre:nuxt-app-v1 # Use your Docker Hub repo name

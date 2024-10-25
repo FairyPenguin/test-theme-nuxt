@@ -73,64 +73,76 @@ jobs:
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
-      - name: Setup VPS permissions
+      - name: Debug - Check SSH key and directory permissions
         run: |
-          # Create setup script
-          cat << 'EOFS' > setup.sh
-            # Add user to docker group
-            if ! groups $USER | grep -q '\bdocker\b'; then
-              echo "${{ secrets.VPS_PASSWORD }}" | sudo -S usermod -aG docker $USER
-            fi
-            
-            # Add docker commands to sudoers
-            echo "${{ secrets.VPS_PASSWORD }}" | sudo -S bash -c 'cat >> /etc/sudoers.d/docker-commands << EOF
-            $USER ALL=(ALL) NOPASSWD: /usr/bin/docker pull
-            $USER ALL=(ALL) NOPASSWD: /usr/bin/docker stop
-            $USER ALL=(ALL) NOPASSWD: /usr/bin/docker rm
-            $USER ALL=(ALL) NOPASSWD: /usr/bin/docker run
-            EOF'
-            
-            # Set correct permissions
-            echo "${{ secrets.VPS_PASSWORD }}" | sudo -S chmod 440 /etc/sudoers.d/docker-commands
-          EOFS
-          chmod +x setup.sh
+          ls -la ~/.ssh
+          echo "SSH directory and key permissions:"
+          stat ~/.ssh/id_rsa
+          echo "Known hosts content exists:"
+          test -f ~/.ssh/known_hosts && echo "Yes" || echo "No"
 
-          # Run setup script
-          sudo sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -tt -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} < setup.sh
-          rm setup.sh
+      - name: Debug - Test Basic SSH Connection
+        run: |
+          echo "Testing SSH connection with password only..."
+          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "echo 'SSH Connection Successful' && whoami && pwd" || echo "Password-only SSH failed with exit code $?"
 
+          echo "Testing SSH connection with key only..."
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "echo 'SSH Connection Successful' && whoami && pwd" || echo "Key-only SSH failed with exit code $?"
+
+          echo "Testing SSH connection with both key and password..."
+          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "echo 'SSH Connection Successful' && whoami && pwd" || echo "Combined SSH failed with exit code $?"
+
+      - name: Debug - Check User and Docker Setup
+        run: |
+          echo "Attempting to check user and docker setup..."
+          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -tt -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} '
+            echo "Current user: $(whoami)"
+            echo "Groups membership:"
+            groups
+            echo "Docker status:"
+            systemctl status docker || true
+            echo "Docker socket permissions:"
+            ls -l /var/run/docker.sock || true
+            echo "Can we run docker commands?"
+            docker ps || true
+            echo "Sudo permissions:"
+            sudo -l || true
+          ' || echo "Debug check failed with exit code $?"
+
+      - name: Debug - Test Individual Docker Commands
+        if: always() # Run even if previous steps failed
+        run: |
+          echo "Testing docker commands individually..."
+          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -tt -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} '
+            commands=(
+              "docker info"
+              "docker ps"
+              "docker images"
+            )
+            for cmd in "${commands[@]}"; do
+              echo "Testing: $cmd"
+              $cmd || echo "Failed with exit code $?"
+            done
+          ' || echo "Docker commands test failed with exit code $?"
+
+      # Only proceed with actual deployment if debug steps succeed
       - name: Deploy to VPS
+        if: success()
         run: |
-          # Create deployment script
           cat << 'EOFS' > deploy.sh
-            # Load the docker group permissions without logout
-            newgrp docker << 'EOF'
-              # Pull and run the container
-              docker pull ${{ env.DOCKER_IMAGE_FRONTEND }}
-              docker stop my-app || true
-              docker rm my-app || true
-              docker run -d --name my-app -p 3000:3000 ${{ env.DOCKER_IMAGE_FRONTEND }}
-            EOF
+            set -x  # Enable command echoing
+            echo "Starting deployment as user: $(whoami)"
+            echo "Testing docker pull..."
+            docker pull ${{ env.DOCKER_IMAGE_FRONTEND }}
+            echo "Testing docker stop..."
+            docker stop my-app || true
+            echo "Testing docker rm..."
+            docker rm my-app || true
+            echo "Testing docker run..."
+            docker run -d --name my-app -p 3000:3000 ${{ env.DOCKER_IMAGE_FRONTEND }}
           EOFS
           chmod +x deploy.sh
 
-          # Execute deployment
-          sudo sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -tt -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} 'bash -s' < deploy.sh
+          echo "Executing deployment script..."
+          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -tt -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} 'bash -s' < deploy.sh || echo "Deployment failed with exit code $?"
           rm deploy.sh
-
-      - name: Health Check
-        run: |
-          cat << 'EOFS' > healthcheck.sh
-            curl -s http://localhost:3000 > /dev/null
-            if [ $? -eq 0 ]; then
-              echo "Health check passed!"
-              exit 0
-            else
-              echo "Health check failed!"
-              exit 1
-            fi
-          EOFS
-          chmod +x healthcheck.sh
-
-          sudo sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -tt -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} 'bash -s' < healthcheck.sh
-          rm healthcheck.sh

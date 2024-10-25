@@ -77,35 +77,36 @@ jobs:
         run: |
           # Create a temporary script file
           cat << 'EOFS' > deploy.sh
-            docker pull ${{ env.DOCKER_IMAGE_FRONTEND }}
-            docker stop my-app || true
-            docker rm my-app || true
-            docker run -d --name my-app -p 3000:3000 ${{ env.DOCKER_IMAGE_FRONTEND }}
+            # Using sudo for all docker commands
+            sudo docker pull ${{ env.DOCKER_IMAGE_FRONTEND }}
+            sudo docker stop my-app || true
+            sudo docker rm my-app || true
+            sudo docker run -d --name my-app -p 3000:3000 ${{ env.DOCKER_IMAGE_FRONTEND }}
           EOFS
           chmod +x deploy.sh
 
-          # Use sshpass with explicit password
-          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -tt -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} 'bash -s' < deploy.sh
+          # Use sshpass with explicit password and pass password to sudo
+          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -tt -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "echo '${{ secrets.VPS_PASSWORD }}' | sudo -S bash -s" < deploy.sh
 
           # Clean up
-          rm deploy.sh      # - name: Deploy to Hetzner VPS
-      #   uses: appleboy/ssh-action@master
-      #   with:
-      #     host: ${{ secrets.VPS_HOST }}
-      #     username: ${{ secrets.VPS_USER }}
-      #     key: ${{ secrets.VPS_SSH_KEY }} # Only if using SSH key
-      #     passphrase: ${{ secrets.VPS_SSH_PASSPHRASE }} # Add this line
-      #     script: |
-      #       docker pull $DOCKER_IMAGE_FRONTEND
-      #       docker run -d --name my-app -p 3000:3000 $DOCKER_IMAGE_FRONTEND
+          rm deploy.sh
 
       - name: Health Check
         run: |
-          ssh -o StrictHostKeyChecking=no -i $VPS_SSH_KEY $VPS_USER@$VPS_HOST << 'EOF'
-            if curl -s http://localhost:3000; then
+          # Create a temporary health check script
+          cat << 'EOFS' > healthcheck.sh
+            if sudo curl -s http://localhost:3000; then
               echo "Health check passed!"
+              exit 0
             else
               echo "Health check failed!"
               exit 1
             fi
-          EOF
+          EOFS
+          chmod +x healthcheck.sh
+
+          # Run health check with sudo
+          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -tt -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "echo '${{ secrets.VPS_PASSWORD }}' | sudo -S bash -s" < healthcheck.sh
+
+          # Clean up
+          rm healthcheck.sh

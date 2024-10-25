@@ -57,3 +57,42 @@ jobs:
           cd frontend  # Ensure you are in the frontend directory
           docker-compose build
           docker-compose push
+
+      - name: Deploy to Hetzner VPS
+        run: |
+          ssh -o StrictHostKeyChecking=no -i $VPS_SSH_KEY $VPS_USER@$VPS_HOST << 'EOF'
+            docker pull greyfighter/prepre:nuxt-app-v1
+            docker run -d --name my-app -p 3000:3000 greyfighter/prepre:nuxt-app-v1
+          EOF
+
+      - name: Health Check
+        run: |
+          ssh -o StrictHostKeyChecking=no -i $VPS_SSH_KEY $VPS_USER@$VPS_HOST << 'EOF'
+            if curl -s http://localhost:3000; then
+              echo "Health check passed!"
+            else
+              echo "Health check failed!"
+              exit 1
+            fi
+          EOF
+
+      # - name: Deploy to Hetzner VPS
+      #   uses: appleboy/ssh-action@v1.0.0
+      #   with:
+      #     host: ${{ secrets.VPS_HOST }}
+      #     username: ${{ secrets.VPS_USERNAME }}
+      #     key: ${{ secrets.SSH_PRIVATE_KEY }}
+      #     script: |
+      #       cd /path/to/your/project
+      #       docker-compose pull
+      #       docker-compose down
+      #       docker-compose up -d
+
+      # - name: Health check
+      #   uses: appleboy/ssh-action@v1.0.0
+      #   with:
+      #     host: ${{ secrets.VPS_HOST }}
+      #     username: ${{ secrets.VPS_USERNAME }}
+      #     key: ${{ secrets.SSH_PRIVATE_KEY }}
+      #     script: |
+      #       curl -f http://localhost:80 || exit 1

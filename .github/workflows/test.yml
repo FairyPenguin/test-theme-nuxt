@@ -93,13 +93,16 @@ jobs:
           # First attempt - using key with password prompt
           sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -v -i ~/.ssh/id_rsa admin@49.13.174.222 "echo 'Connection successful!' && whoami" || echo "First attempt failed with $?"
           # Login to Docker Hub
-          echo '${{ secrets.DOCKERHUB_TOKEN }}' | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin"
 
       - name: Deploy to VPS
         if: success()
         run: |
           cat << 'EOFS' > deploy.sh
             set -x  # Enable command echoing
+            
+            # Login to Docker Hub
+            echo '${{ secrets.DOCKERHUB_TOKEN }}' | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin"
+            
             echo "Starting deployment as user: $(whoami)"
             echo "Testing docker commands..."
             docker pull greyfighter/prepre:nuxt-app-v1 

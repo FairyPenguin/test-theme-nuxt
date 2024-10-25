@@ -68,81 +68,57 @@ jobs:
       - name: Set up SSH directory and keys
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
+          # Save the private key with proper line breaks
+          echo "${{ secrets.VPS_SSH_KEY }}" | sed 's/\\n/\n/g' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+          # Save the public key
+          echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC4/ggD+eWySay8W1q3cqi/aiddrHGPM0ZR1yLLixvDFpxc6Dq7HlFGQixBQ5KjC0JntNuSgnsi3X9tMW0vjfI4CxDHzXu5Ab9DHRMWXz5l4kYhOwlpKmJeyBu8Yk9ErEP7QUpz1E3L+9xSkV5dAZvzdcLjtgyXSjKB3GBdG9IbNlFiY9FsOF7FNXEKqXiORQDF0BFQJ39nZX9LYzRD7MUue05XiC85Skqr4nvVyePomRpWV85YUiYY/vw2aFHNiMGHm39YfrnOaq8ZgmYIo3eny2VmU8x3nyA09YVb4AzSK/PluAVnbCKBKPLjy1msP6FtC9PcLx0nPeL8xfpMN+K/7Prv/7dJkO1tyJEmzTDSoCREkLWmUTrqU42TjVkxfPbkQNSi5de1UrQaR6c2PyOURxQL8eY9xup3UOusoBIsxQps/VgNKTO8XcMZDSmyd1TXeAkHheqkRmoBdJCYmx4dv3HTuTRy3ft0AeVflNEIlM+bAlrVSjtLX5tUgNyuR60= mahmoud@mahmoud-Latitude-E5570" > ~/.ssh/id_rsa.pub
+          chmod 644 ~/.ssh/id_rsa.pub
+
+          # Add host key
+          ssh-keyscan -H 49.13.174.222 >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
-      - name: Debug - Check SSH key and directory permissions
+      - name: Debug - Check SSH Setup
         run: |
+          echo "SSH directory contents:"
           ls -la ~/.ssh
-          echo "SSH directory and key permissions:"
-          stat ~/.ssh/id_rsa
-          echo "Known hosts content exists:"
-          test -f ~/.ssh/known_hosts && echo "Yes" || echo "No"
+          echo "Testing key file existence:"
+          test -f ~/.ssh/id_rsa && echo "Private key exists" || echo "Private key missing"
+          test -f ~/.ssh/id_rsa.pub && echo "Public key exists" || echo "Public key missing"
 
-      - name: Debug - Test Basic SSH Connection
+      - name: Test SSH Connection
         run: |
-          echo "Testing SSH connection with password only..."
-          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "echo 'SSH Connection Successful' && whoami && pwd" || echo "Password-only SSH failed with exit code $?"
+          # First attempt - using key with password prompt
+          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -v -i ~/.ssh/id_rsa admin@49.13.174.222 "echo 'Connection successful!' && whoami" || echo "First attempt failed with $?"
 
-          echo "Testing SSH connection with key only..."
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "echo 'SSH Connection Successful' && whoami && pwd" || echo "Key-only SSH failed with exit code $?"
-
-          echo "Testing SSH connection with both key and password..."
-          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "echo 'SSH Connection Successful' && whoami && pwd" || echo "Combined SSH failed with exit code $?"
-
-      - name: Debug - Check User and Docker Setup
-        run: |
-          echo "Attempting to check user and docker setup..."
-          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -tt -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} '
-            echo "Current user: $(whoami)"
-            echo "Groups membership:"
-            groups
-            echo "Docker status:"
-            systemctl status docker || true
-            echo "Docker socket permissions:"
-            ls -l /var/run/docker.sock || true
-            echo "Can we run docker commands?"
-            docker ps || true
-            echo "Sudo permissions:"
-            sudo -l || true
-          ' || echo "Debug check failed with exit code $?"
-
-      - name: Debug - Test Individual Docker Commands
-        if: always() # Run even if previous steps failed
-        run: |
-          echo "Testing docker commands individually..."
-          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -tt -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} '
-            commands=(
-              "docker info"
-              "docker ps"
-              "docker images"
-            )
-            for cmd in "${commands[@]}"; do
-              echo "Testing: $cmd"
-              $cmd || echo "Failed with exit code $?"
-            done
-          ' || echo "Docker commands test failed with exit code $?"
-
-      # Only proceed with actual deployment if debug steps succeed
       - name: Deploy to VPS
         if: success()
         run: |
           cat << 'EOFS' > deploy.sh
             set -x  # Enable command echoing
             echo "Starting deployment as user: $(whoami)"
-            echo "Testing docker pull..."
+            echo "Testing docker commands..."
             docker pull ${{ env.DOCKER_IMAGE_FRONTEND }}
-            echo "Testing docker stop..."
             docker stop my-app || true
-            echo "Testing docker rm..."
             docker rm my-app || true
-            echo "Testing docker run..."
             docker run -d --name my-app -p 3000:3000 ${{ env.DOCKER_IMAGE_FRONTEND }}
           EOFS
           chmod +x deploy.sh
 
-          echo "Executing deployment script..."
-          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -tt -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} 'bash -s' < deploy.sh || echo "Deployment failed with exit code $?"
+          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -i ~/.ssh/id_rsa admin@49.13.174.222 'bash -s' < deploy.sh
           rm deploy.sh
+
+      - name: Health Check
+        if: success()
+        run: |
+          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -i ~/.ssh/id_rsa admin@49.13.174.222 '
+            if curl -s http://localhost:3000; then
+              echo "Health check passed!"
+              exit 0
+            else
+              echo "Health check failed!"
+              exit 1
+            fi
+          '

@@ -60,10 +60,19 @@ jobs:
 
       - name: Deploy to Hetzner VPS
         run: |
-          ssh -o StrictHostKeyChecking=no -i $VPS_SSH_KEY $VPS_USER@$VPS_HOST << 'EOF'
-            docker pull greyfighter/prepre:nuxt-app-v1
-            docker run -d --name my-app -p 3000:3000 greyfighter/prepre:nuxt-app-v1
+          echo "$VPS_SSH_KEY" > id_rsa  # Write the SSH key to a file
+          chmod 600 id_rsa  # Set proper permissions
+          ssh -o StrictHostKeyChecking=no -i id_rsa $VPS_USER@$VPS_HOST << 'EOF'
+            docker pull $DOCKER_IMAGE_FRONTEND
+            docker run -d --name my-app -p 3000:3000 $DOCKER_IMAGE_FRONTEND
           EOF
+
+      # - name: Deploy to Hetzner VPS
+      #   run: |
+      #     ssh -o StrictHostKeyChecking=no -i $VPS_SSH_KEY $VPS_USER@$VPS_HOST << 'EOF'
+      #       docker pull greyfighter/prepre:nuxt-app-v1
+      #       docker run -d --name my-app -p 3000:3000 greyfighter/prepre:nuxt-app-v1
+      #     EOF
 
       - name: Health Check
         run: |

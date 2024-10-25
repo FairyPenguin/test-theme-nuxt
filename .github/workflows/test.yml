@@ -58,18 +58,22 @@ jobs:
           docker-compose build
           docker-compose push
 
+      - name: Install sshpass
+        run: sudo apt-get install -y sshpass
+
       - name: Deploy to Hetzner VPS
         run: |
-          echo "$VPS_SSH_KEY" > id_rsa  # Write the SSH key to a file
-          chmod 600 id_rsa  # Set proper permission
+          sshpass -p ${{ secrets.VPS_PASSWORD }} ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST "docker pull $DOCKER_IMAGE_FRONTEND && docker run -d --name my-app -p 3000:3000 $DOCKER_IMAGE_FRONTEND"
+      #   run: |
+      #     echo "$VPS_SSH_KEY" > id_rsa  # Write the SSH key to a file
+      #     chmod 600 id_rsa  # Set proper permission
 
+      #     # Use SSH command with proper syntax
+      #     ssh -o StrictHostKeyChecking=no -i id_rsa $VPS_USER@$VPS_HOST "docker pull $DOCKER_IMAGE_FRONTEND && docker run -d --name my-app -p 3000:3000 $DOCKER_IMAGE_FRONTEND"
 
-          # Use SSH command with proper syntax
-          ssh -o StrictHostKeyChecking=no -i id_rsa $VPS_USER@$VPS_HOST "docker pull $DOCKER_IMAGE_FRONTEND && docker run -d --name my-app -p 3000:3000 $DOCKER_IMAGE_FRONTEND"
+      # - name: Cleanup
+      #   run: rm -f id_rsa # Clean up the SSH key file
 
-      - name: Cleanup
-        run: rm -f id_rsa # Clean up the SSH key file
-        
       # - name: Deploy to Hetzner VPS
       #   run: |
       #     ssh -o StrictHostKeyChecking=no -i $VPS_SSH_KEY $VPS_USER@$VPS_HOST << 'EOF'

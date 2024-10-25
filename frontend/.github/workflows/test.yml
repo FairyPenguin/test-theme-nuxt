@@ -7,7 +7,7 @@ on:
     branches: [master, main]
 
 env:
-  DOCKER_IMAGE_FRONTEND: nuxt-app
+  DOCKER_IMAGE_FRONTEND: greyfighter/prepre:nuxt-app-v1 # Use your Docker Hub repo name
   DOCKER_IMAGE_TAG: v1
 
 jobs:
@@ -22,6 +22,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20.18.0"
+
+      - name: Install pnpm
+        run: npm install -g pnpm
 
       - name: Install dependencies
         run: |

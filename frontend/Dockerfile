@@ -1,4 +1,4 @@
-ARG NODE_VERSION=20.18.0
+ARG NODE_VERSION=22.9.0
 
 # Create build stage
 

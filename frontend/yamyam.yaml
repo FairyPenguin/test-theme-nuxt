@@ -1,0 +1,35 @@
+- name: Deploy to VPS
+  if: success()
+  run: |
+    cat << 'EOFS' > deploy.sh
+      set -x  # Enable command echoing
+      
+      # Login to Docker Hub
+      echo '${{ secrets.DOCKERHUB_TOKEN }}' | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+      
+
+      echo "Starting deployment as user: $(whoami)"
+      echo "Testing docker commands..."
+      docker pull greyfighter/prepre:nuxt-app-v1 
+
+      # Stop and remove the existing container if it exists
+      if [ "$(docker ps -q -f name=nuxt-frontend)" ]; then
+          echo "Stopping existing container..."
+          docker stop nuxt-frontend
+          docker rm nuxt-frontend
+      fi
+
+
+      # Run the new container
+
+      # docker run -d \
+      #   --name nuxt-frontend \
+      #   --restart unless-stopped \
+      #   -p 3000:3000 \
+      #   greyfighter/prepre:nuxt-app-v1
+      cd 
+      # Scale the new container instances and start them
+      docker-compose up --scale nuxt-frontend=3 -d
+
+    EOFS
+    chmod +x deploy.sh

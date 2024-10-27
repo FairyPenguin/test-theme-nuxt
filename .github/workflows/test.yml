@@ -92,7 +92,6 @@ jobs:
         run: |
           # First attempt - using key with password prompt
           sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -v -i ~/.ssh/id_rsa admin@49.13.174.222 "echo 'Connection successful!' && whoami" || echo "First attempt failed with $?"
-          # Login to Docker Hub
 
       - name: Deploy to VPS
         if: success()
@@ -104,7 +103,8 @@ jobs:
             echo '${{ secrets.DOCKERHUB_TOKEN }}' | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
             
             cd frontend  # Ensure you are in the frontend directory
-            echo "Checking Directory |>> weare in the: $(pwd)"
+            echo "Checking Directory |>> we are in the: $(pwd)"
+
             echo "Starting deployment as user: $(whoami)"
             echo "Testing docker commands..."
             docker pull greyfighter/prepre:nuxt-app-v1 
@@ -124,7 +124,7 @@ jobs:
             #   --restart unless-stopped \
             #   -p 3000:3000 \
             #   greyfighter/prepre:nuxt-app-v1
-            cd 
+
             # Scale the new container instances and start them
             docker-compose up --scale nuxt-frontend=3 -d
 

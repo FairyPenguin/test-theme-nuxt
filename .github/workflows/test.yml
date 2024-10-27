@@ -124,7 +124,7 @@ jobs:
             #   greyfighter/prepre:nuxt-app-v1
             
             # Scale the new container instances and start them
-            docker-compose up --scale nuxt-frontend=3 -d
+            docker-compose -f ./frontend/docker-compose.yml --scale nuxt-frontend=3 -d
 
           EOFS
           chmod +x deploy.sh

@@ -102,13 +102,15 @@ jobs:
             # Login to Docker Hub
             echo '${{ secrets.DOCKERHUB_TOKEN }}' | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
             
-            cd frontend  # Ensure you are in the frontend directory
-            echo "Checking Directory |>> we are in the: $(pwd)"
+
 
             echo "Starting deployment as user: $(whoami)"
             echo "Testing docker commands..."
             docker pull greyfighter/prepre:nuxt-app-v1 
 
+            cd frontend  # Ensure you are in the frontend directory
+            echo "Checking Directory |>> we are in the: $(pwd)"
+            
             # Stop and remove the existing container if it exists
             if [ "$(docker ps -q -f name=nuxt-frontend)" ]; then
                 echo "Stopping existing container..."

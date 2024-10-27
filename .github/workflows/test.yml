@@ -108,14 +108,24 @@ jobs:
             echo "Testing docker commands..."
             docker pull greyfighter/prepre:nuxt-app-v1 
 
-            cd frontend  # Ensure you are in the frontend directory
-            echo "Checking Directory |>> we are in the: $(pwd)"
-            
+            # cd frontend  # Ensure you are in the frontend directory
+            # echo "Checking Directory |>> we are in the: $(pwd)"
+
+            # # Stop and remove the existing container if it exists
+            # if [ "$(docker ps -q -f name=nuxt-frontend)" ]; then
+            #     echo "Stopping existing container..."
+            #     docker stop nuxt-frontend
+            #     docker rm nuxt-frontend
+            # fi
+
             # Stop and remove the existing container if it exists
             if [ "$(docker ps -q -f name=nuxt-frontend)" ]; then
                 echo "Stopping existing container..."
                 docker stop nuxt-frontend
+                echo "Removing existing container..."
                 docker rm nuxt-frontend
+            else
+                echo "No existing container found."
             fi
 
 

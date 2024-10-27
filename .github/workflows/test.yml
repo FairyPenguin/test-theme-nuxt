@@ -108,7 +108,13 @@ jobs:
             docker pull greyfighter/prepre:nuxt-app-v1 
 
             # Stop and remove the existing container if it exists
+            if [ "$(docker ps -q -f name=nuxt-frontend)" ]; then
+                echo "Stopping existing container..."
+                docker stop nuxt-frontend
+                docker rm nuxt-frontend
+            fi
 
+            
             # Run the new container
 
             docker run -d \

@@ -6,6 +6,8 @@ services:
       context: .
       dockerfile: Dockerfile # Path to your Dockerfile
     image: greyfighter/prepre:nuxt-app-v1 # Set your image name
+    deploy:
+      replicas: 3 # Number of instances
     ports:
       - "3000:3000" # Map your ports as needed
 

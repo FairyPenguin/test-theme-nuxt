@@ -96,15 +96,24 @@ jobs:
       - name: Create and transfer docker-compose file
         run: |
           cat << 'EOF' > docker-compose.yml
-          version: '3.8'
 
           services:
             nuxt-frontend:
               image: greyfighter/prepre:nuxt-app-v1
               restart: unless-stopped
+              # Remove fixed host port mapping to allow scaling
               ports:
                 - "3000-3002:3000"
-          EOF
+              deploy:
+                mode: replicated
+                replicas: 3
+              # Add healthcheck
+              healthcheck:
+                test: ["CMD", "curl", "-f", "http://localhost:3000"]
+                interval: 30s
+                timeout: 10s
+                retries: 3
+                start_period: 40s          EOF
 
           sshpass -p "${{ secrets.VPS_PASSWORD }}" scp -i ~/.ssh/id_rsa docker-compose.yml admin@49.13.174.222:~/docker-compose.yml
 
@@ -112,52 +121,88 @@ jobs:
         if: success()
         run: |
           cat << 'EOFS' > deploy.sh
-            set -x  # Enable command echoing
+            set -x
             
             # Login to Docker Hub
             echo '${{ secrets.DOCKERHUB_TOKEN }}' | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
             
-
             echo "Starting deployment as user: $(whoami)"
-            echo "Testing docker commands..."
-
+            
+            # Pull the latest image
             docker pull greyfighter/prepre:nuxt-app-v1 
 
-            # # Stop and remove the existing container if it exists
-            # if [ "$(docker ps -q -f name=nuxt-frontend)" ]; then
-            #     echo "Stopping existing container..."
-            #     docker stop nuxt-frontend
-            #     docker rm nuxt-frontend
-            # fi
-
-            # Stop and remove the existing container if it exists
-            if [ "$(docker ps -q -f name=nuxt-frontend)" ]; then
-                echo "Stopping existing container..."
-                docker stop nuxt-frontend
-                echo "Removing existing container..."
-                docker rm nuxt-frontend
-            else
-                echo "No existing container found."
-            fi
-
-
-            # Run the new container
-
-            # docker run -d \
-            #   --name nuxt-frontend \
-            #   --restart unless-stopped \
-            #   -p 3000:3000 \
-            #   greyfighter/prepre:nuxt-app-v1
-
-            # Scale the new container instances and start them
+            # Cleanup: Stop all existing containers with the service name
+            docker compose down || true
             
-            docker-compose up --scale nuxt-frontend=3 -d
+            # Remove any lingering containers
+            docker rm -f $(docker ps -a -q -f name=nuxt-frontend) || true
+            
+            # Remove existing container names to avoid conflicts
+            docker compose rm -f || true
+            
+            # Start fresh with new containers
+            docker compose up -d --force-recreate --scale nuxt-frontend=3
 
+            # Verify deployment
+            echo "Verifying deployment..."
+            sleep 10  # Give containers time to start
+            docker ps | grep nuxt-frontend
+            echo "Number of running instances:"
+            docker ps -q -f name=nuxt-frontend | wc -l
           EOFS
           chmod +x deploy.sh
 
           sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -i ~/.ssh/id_rsa admin@49.13.174.222 'bash -s' < deploy.sh
           rm deploy.sh
+
+      # - name: Deploy to VPS
+      #   if: success()
+      #   run: |
+      #     cat << 'EOFS' > deploy.sh
+      #       set -x  # Enable command echoing
+
+      #       # Login to Docker Hub
+      #       echo '${{ secrets.DOCKERHUB_TOKEN }}' | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+
+      #       echo "Starting deployment as user: $(whoami)"
+      #       echo "Testing docker commands..."
+
+      #       docker pull greyfighter/prepre:nuxt-app-v1
+
+      #       # # Stop and remove the existing container if it exists
+      #       # if [ "$(docker ps -q -f name=nuxt-frontend)" ]; then
+      #       #     echo "Stopping existing container..."
+      #       #     docker stop nuxt-frontend
+      #       #     docker rm nuxt-frontend
+      #       # fi
+
+      #       # Stop and remove the existing container if it exists
+      #       if [ "$(docker ps -q -f name=nuxt-frontend)" ]; then
+      #           echo "Stopping existing container..."
+      #           docker stop nuxt-frontend
+      #           echo "Removing existing container..."
+      #           docker rm nuxt-frontend
+      #       else
+      #           echo "No existing container found."
+      #       fi
+
+      #       # Run the new container
+
+      #       # docker run -d \
+      #       #   --name nuxt-frontend \
+      #       #   --restart unless-stopped \
+      #       #   -p 3000:3000 \
+      #       #   greyfighter/prepre:nuxt-app-v1
+
+      #       # Scale the new container instances and start them
+
+      #       docker-compose up --scale nuxt-frontend=3 -d
+
+      #     EOFS
+      #     chmod +x deploy.sh
+
+      #     sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -i ~/.ssh/id_rsa admin@49.13.174.222 'bash -s' < deploy.sh
+      #     rm deploy.sh
 
       - name: Health Check
         if: success()

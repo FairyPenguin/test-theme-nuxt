@@ -12,7 +12,7 @@ const items = [
     <h1 class="">HOME</h1>
     <p>
       This string is to check and verify that docker is usign the latest code
-      updates pushed to GH
+      updates pushed to GH #28-10s
     </p>
     <v-btn prepend-icon="$vuetify"> Button </v-btn>
     <v-list lines="one">

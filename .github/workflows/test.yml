@@ -93,6 +93,21 @@ jobs:
           # First attempt - using key with password prompt
           sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -v -i ~/.ssh/id_rsa admin@49.13.174.222 "echo 'Connection successful!' && whoami" || echo "First attempt failed with $?"
 
+      - name: Create and transfer docker-compose file
+        run: |
+          cat << 'EOF' > docker-compose.yml
+          version: '3.8'
+
+          services:
+            nuxt-frontend:
+              image: greyfighter/prepre:nuxt-app-v1
+              restart: unless-stopped
+              ports:
+                - "3000-3002:3000"
+          EOF
+
+          sshpass -p "${{ secrets.VPS_PASSWORD }}" scp -i ~/.ssh/id_rsa docker-compose.yml admin@49.13.174.222:~/docker-compose.yml
+
       - name: Deploy to VPS
         if: success()
         run: |
@@ -103,13 +118,10 @@ jobs:
             echo '${{ secrets.DOCKERHUB_TOKEN }}' | docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
             
 
-
             echo "Starting deployment as user: $(whoami)"
             echo "Testing docker commands..."
-            docker pull greyfighter/prepre:nuxt-app-v1 
 
-            # cd frontend  # Ensure you are in the frontend directory
-            # echo "Checking Directory |>> we are in the: $(pwd)"
+            docker pull greyfighter/prepre:nuxt-app-v1 
 
             # # Stop and remove the existing container if it exists
             # if [ "$(docker ps -q -f name=nuxt-frontend)" ]; then
@@ -138,6 +150,7 @@ jobs:
             #   greyfighter/prepre:nuxt-app-v1
 
             # Scale the new container instances and start them
+            
             docker-compose up --scale nuxt-frontend=3 -d
 
           EOFS

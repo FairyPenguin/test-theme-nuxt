@@ -132,7 +132,9 @@ jobs:
             docker pull greyfighter/prepre:nuxt-app-v1 
 
             # Cleanup: Stop all existing containers with the service name
-            docker compose down || true
+            # docker compose down || true
+            docker-compose -f docker-compose-frontend.yml pull
+            docker-compose -f docker-compose-frontend.yml up -d --force-recreate --scale nuxt-frontend=3
             
             # Remove any lingering containers
             docker rm -f $(docker ps -a -q -f name=nuxt-frontend) || true

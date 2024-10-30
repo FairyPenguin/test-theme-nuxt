@@ -95,7 +95,7 @@ jobs:
 
       - name: Create and transfer docker-compose file
         run: |
-          cat << 'EOF' > docker-compose.yml
+          cat << 'EOF' > docker-compose-frontend.yml
 
           services:
             nuxt-frontend:
@@ -115,7 +115,7 @@ jobs:
                 retries: 3
                 start_period: 40s          EOF
 
-          sshpass -p "${{ secrets.VPS_PASSWORD }}" scp -i ~/.ssh/id_rsa docker-compose.yml admin@49.13.174.222:~/docker-compose.yml
+          sshpass -p "${{ secrets.VPS_PASSWORD }}" scp -i ~/.ssh/id_rsa docker-compose-frontend.yml admin@49.13.174.222:~/docker-compose-frontend.yml
 
       - name: Deploy to VPS
         if: success()

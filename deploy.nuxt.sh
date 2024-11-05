@@ -27,13 +27,13 @@ docker pull greyfighter/prepre:nuxt-app-v1
 # docker-compose -f docker-compose.yml up -d --force-recreate --scale nest-backend=3
 
 # Remove any lingering containers
-docker rm -f $(docker ps -a -q -f name=nnuxt-frontend) || true
+docker rm -f $(docker ps -a -q -f name=nuxt-frontend) || true
 # docker rm -f $(docker ps -a -q -f name=backend-nest_database_1) || true
 
 # Remove existing container names to avoid conflicts
 docker compose rm -f || true
 
-docker-compose -f docker-compose-frontend.yml up -d --force-recreate --scale nnuxt-frontend=3
+docker-compose -f docker-compose-frontend.yml up -d --force-recreate --scale nuxt-frontend=3
 # Start fresh with new containers
 # docker compose up -d --force-recreate --scale nest-backend=3
 
@@ -42,8 +42,8 @@ docker-compose -f docker-compose-frontend.yml up -d --force-recreate --scale nnu
 # Verify deployment
 echo "Verifying deployment..."
 sleep 10  # Give containers time to start
-docker ps | grep nnuxt-frontend || echo "No nest-backend containers running"    echo "Number of running instances:"
-docker ps -q -f name=nnuxt-frontend | wc -l
+docker ps | grep nuxt-frontend || echo "No nest-backend containers running"    echo "Number of running instances:"
+docker ps -q -f name=nuxt-frontend | wc -l
 
 sleep 10
 

@@ -33,7 +33,7 @@ docker rm -f $(docker ps -a -q -f name=nnuxt-frontend) || true
 # Remove existing container names to avoid conflicts
 docker compose rm -f || true
 
-docker-compose up -d --force-recreate --scale nnuxt-frontend=3
+docker-compose -f docker-compose-frontend up -d --force-recreate --scale nnuxt-frontend=3
 # Start fresh with new containers
 # docker compose up -d --force-recreate --scale nest-backend=3
 

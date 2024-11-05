@@ -1,0 +1,13 @@
+# version: "3.8" # Specify the version
+
+services:
+  nuxt-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile # Path to Dockerfile
+    image: greyfighter/prepre:nuxt-app-v1 # Set image name
+    deploy:
+      mode: replicated
+      replicas: 3 # Number of instances
+    ports:
+      - "3000:3000"

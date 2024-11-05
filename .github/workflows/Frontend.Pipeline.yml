@@ -112,7 +112,7 @@ jobs:
       - name: excute the deploy script from the github container
         run: |
 
-          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -i ~/.ssh/id_rsa admin@49.13.174.222 "chmod +x /opt/projects/frontend-nuxt/scripts/deploy.sh && cd /opt/projects/frontend-nuxt/scripts && DOCKERHUB_TOKEN='${{ secrets.DOCKERHUB_TOKEN }}' DOCKERHUB_USERNAME='${{ secrets.DOCKERHUB_USERNAME }}' ./deploy.sh"
+          sshpass -p "${{ secrets.VPS_PASSWORD }}" ssh -i ~/.ssh/id_rsa admin@49.13.174.222 "chmod +x /opt/projects/frontend-nuxt/scripts/deploy.nuxt.sh && cd /opt/projects/frontend-nuxt/scripts && DOCKERHUB_TOKEN='${{ secrets.DOCKERHUB_TOKEN }}' DOCKERHUB_USERNAME='${{ secrets.DOCKERHUB_USERNAME }}' ./deploy.nuxt.sh"
 
       # - name: Create and transfer docker-compose file
       #   run: |
